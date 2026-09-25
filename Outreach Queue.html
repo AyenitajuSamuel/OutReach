@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Outreach Queue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root {
+    --ink: #16241F;
+    --paper: #EFF2EE;
+    --paper-raised: #FFFFFF;
+    --line: #CBD3C7;
+    --line-soft: #DCE2D8;
+    --jade: #2F8F6F;
+    --jade-deep: #1F6E54;
+    --amber: #C97A2B;
+    --amber-soft: #F3E2CC;
+    --rust: #B0472E;
+    --rust-soft: #F4DCD5;
+    --muted: #5C6B60;
+    --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --font-ui: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #EAF0EB;
+      --paper: #101816;
+      --paper-raised: #16211E;
+      --line: #2B3833;
+      --line-soft: #22302B;
+      --jade: #4FBA97;
+      --jade-deep: #3C9679;
+      --amber: #E0A860;
+      --amber-soft: #3A2E1D;
+      --rust: #E08268;
+      --rust-soft: #3A231D;
+      --muted: #93A69A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #EAF0EB;
+    --paper: #101816;
+    --paper-raised: #16211E;
+    --line: #2B3833;
+    --line-soft: #22302B;
+    --jade: #4FBA97;
+    --jade-deep: #3C9679;
+    --amber: #E0A860;
+    --amber-soft: #3A2E1D;
+    --rust: #E08268;
+    --rust-soft: #3A231D;
+    --muted: #93A69A;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+
+  .app {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+
+  header.top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  header.top h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 30px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .progress-tag {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 12px;
+    white-space: nowrap;
+  }
+  .progress-tag strong { color: var(--jade-deep); font-weight: 600; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+  }
+
+  /* --- Setup panel --- */
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .field input[type="text"],
+  .field textarea {
+    width: 100%;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 9px 10px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .field textarea { resize: vertical; min-height: 96px; line-height: 1.5; }
+  .field input:focus, .field textarea:focus, button:focus-visible, .queue-row:focus-visible {
+    outline: 2px solid var(--jade);
+    outline-offset: 1px;
+  }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+  .hint code {
+    font-family: var(--font-mono);
+    background: var(--line-soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .upload-zone {
+    border: 1.5px dashed var(--line);
+    border-radius: 8px;
+    padding: 18px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .upload-zone:hover, .upload-zone.drag {
+    border-color: var(--jade);
+    background: var(--line-soft);
+  }
+  .upload-zone input { display: none; }
+  .upload-zone .up-title { font-weight: 500; font-size: 14px; }
+  .upload-zone .up-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 13px;
+  }
+  .filters label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+
+  .section-title {
+    font-size: 12px;
+    text-transform: none;
+    color: var(--muted);
+    margin: 20px 0 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .section-title:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+
+  /* --- Queue list --- */
+  .queue-list { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto; }
+  .queue-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13.5px;
+  }
+  .queue-row:hover { background: var(--line-soft); }
+  .queue-row.active { background: var(--amber-soft); }
+  .queue-row .num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    width: 22px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .queue-row .name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--line); }
+  .dot.sent { background: var(--jade); }
+  .dot.skipped { background: var(--amber); }
+  .empty-note { color: var(--muted); font-size: 13px; padding: 10px 4px; }
+
+  /* --- Main card --- */
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .lot-num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .biz-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 26px;
+    margin: 2px 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .biz-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    font-size: 13.5px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .biz-meta .stars { color: var(--amber); font-weight: 500; }
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--rust-soft);
+    color: var(--rust);
+    border: 1px solid var(--rust);
+  }
+  .addr { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .phone-line {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    margin-top: 10px;
+  }
+
+  .msg-box {
+    margin-top: 18px;
+  }
+  .msg-box label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .msg-box textarea {
+    width: 100%;
+    min-height: 150px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: var(--font-ui);
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+  .char-count { font-size: 11px; color: var(--muted); text-align: right; margin-top: 4px; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  button {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 7px;
+    padding: 10px 16px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: opacity .12s ease, transform .05s ease;
+  }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--jade); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--jade-deep); }
+  .btn-ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+  .btn-ghost:hover:not(:disabled) { background: var(--line-soft); }
+  .btn-sent { background: var(--jade-deep); color: #fff; }
+  .btn-skip { background: transparent; border-color: var(--amber); color: var(--amber); }
+  .btn-skip:hover:not(:disabled) { background: var(--amber-soft); }
+
+  .nav-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .nav-row .nav-btns { display: flex; gap: 8px; }
+  .nav-row button.icon-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 7px 12px;
+    font-family: var(--font-mono);
+  }
+  .nav-row button.icon-btn:hover:not(:disabled) { background: var(--line-soft); }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-state .em-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+
+  footer.foot {
+    margin-top: 26px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  footer.foot .btn-ghost { font-size: 12.5px; padding: 7px 12px; }
+
+  .toast {
+    position: fixed;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease, transform .18s ease;
+    z-index: 20;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>Outreach Queue</h1>
+    <div class="progress-tag" id="progressTag">0 / 0 contacted</div>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT: setup + queue -->
+    <div class="left-col">
+      <div class="panel" id="setupPanel">
+        <div class="section-title">Your details</div>
+        <div class="field">
+          <label for="yourName">Your name</label>
+          <input type="text" id="yourName" placeholder="e.g. Adebayo">
+        </div>
+        <div class="field">
+          <label for="yourContact">Sign-off line</label>
+          <input type="text" id="yourContact" placeholder="e.g. WhatsApp me here anytime!">
+        </div>
+
+        <div class="section-title">Import leads</div>
+        <div class="upload-zone" id="dropZone" tabindex="0" role="button" aria-label="Upload CSV file">
+          <div class="up-title">Drop your CSV here</div>
+          <div class="up-sub">or click to browse — stays in your browser</div>
+          <input type="file" id="fileInput" accept=".csv">
+        </div>
+        <div class="filters">
+          <label><input type="checkbox" id="filterNoWebsite" checked> No-website leads only</label>
+          <label><input type="checkbox" id="filterHasPhone" checked disabled> Has a phone number (required)</label>
+        </div>
+
+        <div class="section-title">Message template</div>
+        <div class="field" style="margin-bottom:6px;">
+          <textarea id="template" style="min-height:130px;"></textarea>
+          <div class="hint">
+            Placeholders: <code>{name}</code> <code>{type}</code> <code>{rating}</code> <code>{reviews}</code> <code>{yourName}</code> <code>{yourContact}</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;">
+        <div class="section-title" style="margin-top:0;padding-top:0;border-top:none;">Queue</div>
+        <ul class="queue-list" id="queueList">
+          <li class="empty-note">Upload a CSV to build your queue.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- RIGHT: current lead card -->
+    <div class="panel" id="mainCard">
+      <div class="empty-state" id="emptyState">
+        <div class="em-title">Nothing queued yet</div>
+        <div>Upload your scraper's CSV on the left to get started.</div>
+      </div>
+
+      <div id="leadCard" style="display:none;">
+        <div class="card-header">
+          <div>
+            <div class="lot-num" id="lotNum">Lead 1 of 1</div>
+            <div class="biz-name" id="bizName">—</div>
+            <div class="biz-meta">
+              <span id="bizStars"></span>
+              <span id="bizType"></span>
+            </div>
+            <div class="addr" id="bizAddr"></div>
+            <div class="phone-line" id="bizPhone"></div>
+          </div>
+          <span class="badge" id="unverifiedBadge" style="display:none;">unverified — check number</span>
+        </div>
+
+        <div class="msg-box">
+          <label for="msgPreview">Message (edit freely before sending)</label>
+          <textarea id="msgPreview"></textarea>
+          <div class="char-count" id="charCount">0 characters</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn-primary" id="openWaBtn">Open in WhatsApp</button>
+          <button class="btn-ghost" id="copyBtn">Copy message</button>
+          <button class="btn-sent" id="markSentBtn">Mark as sent</button>
+          <button class="btn-skip" id="skipBtn">Skip</button>
+        </div>
+
+        <div class="nav-row">
+          <div class="nav-btns">
+            <button class="icon-btn" id="prevBtn">‹ Prev</button>
+            <button class="icon-btn" id="nextBtn">Next ›</button>
+          </div>
+          <button class="icon-btn" id="resetTemplateBtn">Reset to template</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span>Everything runs locally in your browser — your CSV and phone numbers are never uploaded anywhere.</span>
+    <button class="btn-ghost" id="downloadBtn" style="display:none;">Download progress (CSV)</button>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "outreach_queue_state_v1";
+  var DEFAULT_TEMPLATE = "Hi! This is {yourName}, a junior software developer. I came across {name} and noticed you've got a {rating}\u2605 rating ({reviews} reviews) but no website yet. I help small UK businesses boost their online visibility with a clean, professional site, usually ready within 5 working days \u2014 happy to send a free sample if you're interested! {yourContact}";
+
+  var state = {
+    leads: [],           // full parsed set
+    yourName: "",
+    yourContact: "",
+    template: DEFAULT_TEMPLATE,
+    filterNoWebsite: true,
+    currentIndex: 0,      // index into filteredLeads()
+    overrides: {}         // leadKey -> manually edited message text
+  };
+
+  function safeLoad() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      if (saved && typeof saved === "object") {
+        state.yourName = saved.yourName || "";
+        state.yourContact = saved.yourContact || "";
+        state.template = saved.template || DEFAULT_TEMPLATE;
+        state.filterNoWebsite = saved.filterNoWebsite !== false;
+        state.leads = Array.isArray(saved.leads) ? saved.leads : [];
+        state.overrides = saved.overrides || {};
+      }
+    } catch (e) { /* ignore — start fresh */ }
+  }
+
+  function safeSave() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        yourName: state.yourName,
+        yourContact: state.yourContact,
+        template: state.template,
+        filterNoWebsite: state.filterNoWebsite,
+        leads: state.leads,
+        overrides: state.overrides
+      }));
+    } catch (e) { /* storage unavailable or full — continue without persistence */ }
+  }
+
+  function leadKey(lead) {
+    return (lead.name || "") + "|" + (lead.phoneDigits || "");
+  }
+
+  function normalizePhone(raw) {
+    if (!raw) return "";
+    var digits = String(raw).replace(/[^\d]/g, "");
+    return digits;
+  }
+
+  function pickField(row, keys) {
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      for (var actualKey in row) {
+        if (actualKey.toLowerCase().trim() === k) return row[actualKey];
+      }
+    }
+    return "";
+  }
+
+  function parseCsv(text) {
+    var result = Papa.parse(text, { header: true, skipEmptyLines: true });
+    var rows = result.data || [];
+    var leads = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var name = pickField(r, ["name", "business", "business_name"]);
+      if (!name) continue;
+      var phoneRaw = pickField(r, ["phone_number", "phone", "phonenumber"]);
+      var website = pickField(r, ["website"]);
+      var lead = {
+        name: name.trim(),
+        address: pickField(r, ["address"]).trim(),
+        website: (website || "").trim(),
+        phoneRaw: (phoneRaw || "").trim(),
+        phoneDigits: normalizePhone(phoneRaw),
+        placeType: pickField(r, ["place_type", "type", "category"]).trim(),
+        reviewsAverage: pickField(r, ["reviews_average", "rating"]).trim(),
+        reviewsCount: pickField(r, ["reviews_count", "review_count", "reviews"]).trim(),
+        verified: (pickField(r, ["verified"]) || "Yes").trim() || "Yes",
+        status: "pending" // pending | sent | skipped
+      };
+      leads.push(lead);
+    }
+    return leads;
+  }
+
+  function filteredLeads() {
+    return state.leads.filter(function (l) {
+      if (!l.phoneDigits) return false;
+      if (state.filterNoWebsite && l.website) return false;
+      return true;
+    });
+  }
+
+  function renderTemplate(tmpl, lead) {
+    return tmpl
+      .replace(/\{name\}/g, lead.name || "there")
+      .replace(/\{type\}/g, (lead.placeType || "your trade").toLowerCase())
+      .replace(/\{rating\}/g, lead.reviewsAverage || "great")
+      .replace(/\{reviews\}/g, lead.reviewsCount || "several")
+      .replace(/\{yourName\}/g, state.yourName || "[Your Name]")
+      .replace(/\{yourContact\}/g, state.yourContact || "");
+  }
+
+  function showToast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+
+  // ---------- rendering ----------
+
+  function renderProgress() {
+    var list = filteredLeads();
+    var sent = list.filter(function (l) { return l.status === "sent"; }).length;
+    document.getElementById("progressTag").innerHTML =
+      "<strong>" + sent + "</strong> / " + list.length + " contacted";
+  }
+
+  function renderQueueList() {
+    var list = filteredLeads();
+    var ul = document.getElementById("queueList");
+    ul.innerHTML = "";
+    if (list.length === 0) {
+      ul.innerHTML = '<li class="empty-note">No leads match your filters yet.</li>';
+      return;
+    }
+    list.forEach(function (lead, idx) {
+      var li = document.createElement("li");
+      li.className = "queue-row" + (idx === state.currentIndex ? " active" : "");
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+
+      var num = document.createElement("span");
+      num.className = "num";
+      num.textContent = (idx + 1) + ".";
+
+      var dot = document.createElement("span");
+      dot.className = "dot" + (lead.status === "sent" ? " sent" : lead.status === "skipped" ? " skipped" : "");
+
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = lead.name;
+
+      li.appendChild(num);
+      li.appendChild(dot);
+      li.appendChild(name);
+      li.addEventListener("click", function () { setCurrentIndex(idx); });
+      li.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCurrentIndex(idx); }
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  function renderCard() {
+    var list = filteredLeads();
+    var empty = document.getElementById("emptyState");
+    var card = document.getElementById("leadCard");
+
+    if (list.length === 0) {
+      empty.style.display = "";
+      card.style.display = "none";
+      return;
+    }
+    if (state.currentIndex >= list.length) state.currentIndex = list.length - 1;
+    if (state.currentIndex < 0) state.currentIndex = 0;
+
+    empty.style.display = "none";
+    card.style.display = "";
+
+    var lead = list[state.currentIndex];
+    var key = leadKey(lead);
+
+    document.getElementById("lotNum").textContent = "Lead " + (state.currentIndex + 1) + " of " + list.length;
+    document.getElementById("bizName").textContent = lead.name;
+
+    var stars = lead.reviewsAverage ? ("\u2605 " + lead.reviewsAverage) : "";
+    var reviews = lead.reviewsCount ? (" (" + lead.reviewsCount + " reviews)") : "";
+    document.getElementById("bizStars").className = "stars";
+    document.getElementById("bizStars").textContent = stars + reviews;
+    document.getElementById("bizType").textContent = lead.placeType || "";
+    document.getElementById("bizAddr").textContent = lead.address || "";
+    document.getElementById("bizPhone").textContent = lead.phoneRaw || "";
+
+    document.getElementById("unverifiedBadge").style.display =
+      (lead.verified === "No") ? "" : "none";
+
+    var msgBox = document.getElementById("msgPreview");
+    var msgText = Object.prototype.hasOwnProperty.call(state.overrides, key)
+      ? state.overrides[key]
+      : renderTemplate(state.template, lead);
+    msgBox.value = msgText;
+    updateCharCount();
+
+    var waDisabled = !lead.phoneDigits;
+    document.getElementById("openWaBtn").disabled = waDisabled;
+
+    document.getElementById("prevBtn").disabled = state.currentIndex === 0;
+    document.getElementById("nextBtn").disabled = state.currentIndex >= list.length - 1;
+
+    renderProgress();
+    renderQueueList();
+
+    var dlBtn = document.getElementById("downloadBtn");
+    dlBtn.style.display = state.leads.length ? "" : "none";
+  }
+
+  function updateCharCount() {
+    var v = document.getElementById("msgPreview").value;
+    document.getElementById("charCount").textContent = v.length + " characters";
+  }
+
+  function setCurrentIndex(idx) {
+    state.currentIndex = idx;
+    renderCard();
+  }
+
+  function currentLead() {
+    var list = filteredLeads();
+    return list[state.currentIndex] || null;
+  }
+
+  // ---------- events ----------
+
+  document.getElementById("msgPreview").addEventListener("input", function () {
+    var lead = currentLead();
+    if (!lead) return;
+    state.overrides[leadKey(lead)] = this.value;
+    updateCharCount();
+    safeSave();
+  });
+
+  document.getElementById("resetTemplateBtn").addEventListener("click", function () {
+    var lead = currentLead();
+    if (!lead) return;
+    delete state.overrides[leadKey(lead)];
+    safeSave();
+    renderCard();
+    showToast("Reset to template");
+  });
+
+  document.getElementById("openWaBtn").addEventListener("click", function () {
+    var lead = currentLead();
+    if (!lead || !lead.phoneDigits) return;
+    var msg = document.getElementById("msgPreview").value;
+    var url = "https://wa.me/" + lead.phoneDigits + "?text=" + encodeURIComponent(msg);
+    window.open(url, "_blank", "noopener");
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", function () {
+    var msg = document.getElementById("msgPreview").value;
+    try {
+      navigator.clipboard.writeText(msg).then(function () {
+        showToast("Message copied");
+      }).catch(function () {
+        fallbackCopy(msg);
+      });
+    } catch (e) {
+      fallbackCopy(msg);
+    }
+  });
+
+  function fallbackCopy(text) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showToast("Message copied");
+    } catch (e) {
+      showToast("Couldn't copy — select and copy manually");
+    }
+  }
+
+  document.getElementById("markSentBtn").addEventListener("click", function () {
+    var lead = currentLead();
+    if (!lead) return;
+    lead.status = "sent";
+    safeSave();
+    advanceToNextPending();
+  });
+
+  document.getElementById("skipBtn").addEventListener("click", function () {
+    var lead = currentLead();
+    if (!lead) return;
+    lead.status = "skipped";
+    safeSave();
+    advanceToNextPending();
+  });
+
+  function advanceToNextPending() {
+    var list = filteredLeads();
+    for (var i = state.currentIndex + 1; i < list.length; i++) {
+      if (list[i].status === "pending") { setCurrentIndex(i); return; }
+    }
+    // wrap search from start
+    for (var j = 0; j < state.currentIndex; j++) {
+      if (list[j].status === "pending") { setCurrentIndex(j); return; }
+    }
+    renderCard(); // nothing pending left, just refresh
+  }
+
+  document.getElementById("prevBtn").addEventListener("click", function () {
+    if (state.currentIndex > 0) setCurrentIndex(state.currentIndex - 1);
+  });
+  document.getElementById("nextBtn").addEventListener("click", function () {
+    var list = filteredLeads();
+    if (state.currentIndex < list.length - 1) setCurrentIndex(state.currentIndex + 1);
+  });
+
+  document.getElementById("yourName").addEventListener("input", function () {
+    state.yourName = this.value;
+    safeSave();
+    renderCard();
+  });
+  document.getElementById("yourContact").addEventListener("input", function () {
+    state.yourContact = this.value;
+    safeSave();
+    renderCard();
+  });
+  document.getElementById("template").addEventListener("input", function () {
+    state.template = this.value;
+    safeSave();
+    renderCard();
+  });
+  document.getElementById("filterNoWebsite").addEventListener("change", function () {
+    state.filterNoWebsite = this.checked;
+    state.currentIndex = 0;
+    safeSave();
+    renderCard();
+  });
+
+  // ---------- file upload ----------
+
+  var dropZone = document.getElementById("dropZone");
+  var fileInput = document.getElementById("fileInput");
+
+  dropZone.addEventListener("click", function () { fileInput.click(); });
+  dropZone.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+  });
+  dropZone.addEventListener("dragover", function (e) {
+    e.preventDefault();
+    dropZone.classList.add("drag");
+  });
+  dropZone.addEventListener("dragleave", function () { dropZone.classList.remove("drag"); });
+  dropZone.addEventListener("drop", function (e) {
+    e.preventDefault();
+    dropZone.classList.remove("drag");
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("change", function () {
+    if (this.files && this.files[0]) handleFile(this.files[0]);
+  });
+
+  function handleFile(file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var leads = parseCsv(e.target.result);
+        if (leads.length === 0) {
+          showToast("No usable rows found in that CSV");
+          return;
+        }
+        state.leads = leads;
+        state.overrides = {};
+        state.currentIndex = 0;
+        safeSave();
+        renderCard();
+        showToast(leads.length + " leads loaded");
+      } catch (err) {
+        showToast("Couldn't read that file — check it's a valid CSV");
+      }
+    };
+    reader.onerror = function () { showToast("Couldn't read that file"); };
+    reader.readAsText(file);
+  }
+
+  // ---------- download progress ----------
+
+  var downloadsCap = null;
+  function initDownloads() {
+    if (!window.claude || typeof window.claude.use !== "function") return;
+    window.claude.use("downloads").then(function (cap) {
+      downloadsCap = cap;
+    }).catch(function () { downloadsCap = null; });
+  }
+  initDownloads();
+
+  document.getElementById("downloadBtn").addEventListener("click", function () {
+    var rows = [["name", "phone", "address", "status"]];
+    state.leads.forEach(function (l) {
+      rows.push([l.name, l.phoneRaw, l.address, l.status]);
+    });
+    var csv = rows.map(function (r) {
+      return r.map(function (cell) {
+        var s = String(cell == null ? "" : cell);
+        if (s.indexOf(",") !== -1 || s.indexOf('"') !== -1) {
+          s = '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+      }).join(",");
+    }).join("\n");
+
+    if (downloadsCap && typeof downloadsCap.save === "function") {
+      downloadsCap.save({ filename: "outreach_progress.csv", data: csv }).catch(function () {
+        showToast("Download wasn't available — try copying the message list manually");
+      });
+    } else {
+      showToast("File downloads aren't available in this view");
+    }
+  });
+
+  // ---------- init ----------
+
+  safeLoad();
+  document.getElementById("yourName").value = state.yourName;
+  document.getElementById("yourContact").value = state.yourContact;
+  document.getElementById("template").value = state.template;
+  document.getElementById("filterNoWebsite").checked = state.filterNoWebsite;
+  renderCard();
+
+})();
+</script>
+</body>
+</html>

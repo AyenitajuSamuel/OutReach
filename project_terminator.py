@@ -217,20 +217,25 @@ def extract_lead(driver, map_link: str) -> Lead:
 # --------------------------------------------------------------------------- #
 
 def dismiss_consent_dialog(driver, wait: WebDriverWait):
+    # Multiple selector fallbacks covering text nodes, aria-labels, and Google form submit actions
+    selectors = [
+        "//button[contains(., 'Accept all')]",
+        "//button[contains(., 'Reject all')]",
+        "//button[contains(@aria-label, 'Accept all')]",
+        "//button[contains(@aria-label, 'Reject all')]",
+        "//form[contains(@action, 'consent')]//button",
+    ]
+
+    combined_xpath = " | ".join(selectors)
+
     try:
-        consent = wait.until(
-            EC.element_to_be_clickable(
-                (By.XPATH, "//button[.//span[contains(text(), 'Accept all') or contains(text(), 'Reject all')]]")
-            )
-        )
-        consent.click()
+        consent_btn = wait.until(EC.element_to_be_clickable((By.XPATH, combined_xpath)))
+        driver.execute_script("arguments[0].click();", consent_btn)
         logging.info("Dismissed consent dialog.")
     except TimeoutException:
         logging.debug("No consent dialog appeared (or it timed out) — continuing.")
     except Exception as e:
         logging.warning("Unexpected error dismissing consent dialog: %r", e)
-
-
 # --------------------------------------------------------------------------- #
 # Adaptive scrolling
 # --------------------------------------------------------------------------- #
